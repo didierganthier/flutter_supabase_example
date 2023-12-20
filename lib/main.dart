@@ -38,6 +38,9 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  final _notesStream =
+      Supabase.instance.client.from('notes').stream(primaryKey: ['id']);
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -46,7 +49,51 @@ class _MyHomePageState extends State<MyHomePage> {
           'Supabase Notes App',
         ),
       ),
-      body: Container(),
+      body: StreamBuilder(
+        stream: _notesStream,
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return const Center(
+              child: Text('Error'),
+            );
+          }
+
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          }
+
+          final notes = snapshot.data as List<dynamic>;
+
+          return ListView.builder(
+            itemCount: notes.length,
+            itemBuilder: (context, index) {
+              final note = notes[index];
+
+              return ListTile(
+                title: Text(note['body'] as String),
+                trailing: IconButton(
+                  onPressed: () async {
+                    await Supabase.instance.client
+                        .from('notes')
+                        .delete()
+                        .eq('id', note['id'])
+                        .then((value) => {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Note deleted'),
+                                ),
+                              )
+                            });
+                  },
+                  icon: const Icon(Icons.delete),
+                ),
+              );
+            },
+          );
+        },
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           TextEditingController controller = TextEditingController();
